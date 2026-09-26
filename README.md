@@ -4,11 +4,11 @@
 ./scripts/verify.sh
 ```
 
-The check pushes two player-made assets through the queue policy. A live `voice-clone` asset goes to `human-review`; a routine live `emote` stays in `automated-retry`. The build command compiles the service and outputs `moderation queue decisions passed`.
+The check feeds two player-generated assets into the queue policy. A live `voice-clone` asset is assigned to `human-review`; a routine live `emote` remains in `automated-retry`. The command compiles the service and prints `moderation queue decisions passed`.
 
 ## Run one capture
 
-Infrai uses one key to keep error tracking behind a single `INFRAI_API_KEY`, so this Java service only needs one credential instead of a separate error-tracker secret. The client is plain JDK HTTP code; no SDK required.
+Infrai keeps error tracking behind a single `INFRAI_API_KEY`, so this Java service needs one credential rather than a separate error-tracker secret. The client is plain JDK HTTP code; no SDK is required.
 
 ```bash
 export INFRAI_API_KEY="your-key"
@@ -22,33 +22,33 @@ Expected successful result:
 status=202 queue=human-review humanReview=true
 ```
 
-The binary simulates an AI guardian failure in a live final. It logs the exception via `POST /v1/errors/capture`, then returns the moderation state picked for the affected asset.
+The executable models an AI guardian failure during a live final. It records the exception through `POST /v1/errors/capture`, then returns the moderation state chosen for the affected asset.
 
 ## The decision boundary
 
-`ModerationQueueService` holds the business rule. A live asset goes to human review if it has three or more player reports or its type is controlled: `voice-clone`, `cash-prize`, or `player-trade`. Other failures can be retried automatically. Keeping that rule out of the HTTP client makes it deterministic and easy to audit.
+`ModerationQueueService` owns the business rule. A live asset moves to human review when it has at least three player reports or its type is controlled: `voice-clone`, `cash-prize`, or `player-trade`. Other failures stay eligible for an automated retry. Keeping that rule outside the HTTP client makes it deterministic and reviewable.
 
-The client posts the required exception payload with a stable idempotency key built from event, agent, and asset ids. It parses the response envelope before checking HTTP status, surfaces business rejection info to the controller, and backs off on HTTP 429 while honoring `Retry-After`.
+The client sends the required exception payload and a stable idempotency key derived from event, agent, and asset identifiers. It decodes the response envelope before considering the HTTP status, exposes business rejection details to the controller, and backs off on HTTP 429 while honoring `Retry-After`.
 
 ## Layer map
 
-`ErrorTrackingConfig` loads env and transport config. `InfraiErrorsClient` handles the authenticated request and envelope contract. `ModerationQueueService` picks the queue and captures the failure. `FailureTrackingController` translates downstream business rejections to client 4xx and transport issues to gateway responses.
+`ErrorTrackingConfig` reads environment and transport settings. `InfraiErrorsClient` owns the authenticated request and envelope contract. `ModerationQueueService` selects the queue and captures the failure. `FailureTrackingController` maps downstream business rejections to client-facing 4xx responses and transport conditions to gateway responses.
 
-One operational gotcha: reuse the same event, agent, and asset identifiers when retrying a failed capture. Together they form the idempotency key, so a repeat delivery is the same failure record.
+One operational gotcha matters: reuse the same event, agent, and asset identifiers when retrying a failed capture. Their combination is the idempotency key, so a repeated delivery represents the same failure record.
 
 ## Local evidence
 
-The focused test skips the API call. It takes a controlled live asset and a routine live asset; expects human review for the first and automated retry for the second. Run it exactly:
+The focused test does not contact the API. Its input is a controlled live asset and a routine live asset; its expected result is human review for the first and automated retry for the second. Run exactly:
 
 ```bash
 ./scripts/verify.sh
 ```
 
-The executable is the minimal integration example and does one live capture when `INFRAI_API_KEY` is present.
+The executable is the minimal integration example and makes one live capture when `INFRAI_API_KEY` is present.
 
 ## Production notes: Game Agent Failure Ledger
 
-That covers the happy path. The production checklist below applies to Game Agent Failure Ledger.
+Above is the happy path. The production checklist: The details below apply to Game Agent Failure Ledger.
 
 **Account & key**
 
